@@ -1,0 +1,32 @@
+
+- To do list: 
+
+  -X Read Olson paper to understand the data
+  -X Read Austin paper to understand concordance
+    -X refesh on logistic regression models, ROC curve, AUC, etc.
+  -X become familiar with spatialEco::concordance
+  -X Refresh on glm function when output var is binary
+  -X familiarize self with example data for general ranges of variables, e.g. CV ranges from 0 to 4
+    -X try different positive distribution for X1 (exponential with different mean, gamma, unifrom, beta, half-normal, etc), 
+      but be reasonable with the range, e.g., the majority of X1 should value between 0 to 4
+  -X Try different distributions (we will assume X1 is the variable that we want to identify a cutoff point)
+    - X2, X3, etc ~ norm, uniform, etc
+    
+    - The data set seems to give CV values in increment of 0.1. After trying scenarios with continuous X1, we can try scenarios where X1 is rounded to the nearest tenth.
+    - X1, X2, etc. correlated (using copula and/or MASS packages)
+  
+  - explore partytree::ctree for decision trees/stumps (later, not our priority now)
+  
+  
+  
+- Went through ....
+- (Future) Simulation scenarios to explore:
+  - Different distributions
+  - Different true cutpoints
+  - More covaraites (X2 to Xp, for p = 10, 20, 50)
+  - Correlated covariates (copula, MASS)
+  - More than one covariate to identify a cutpoint
+  - More than one cutpoints?
+  - Cut point given other covariate values? 
+  - Tree method?
+  - Linear regression (continuous response)

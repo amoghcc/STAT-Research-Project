@@ -1,0 +1,11 @@
+To-do
+- Increase sample size
+- Other covariates
+- Use test data to calculate the concordance
+- X1, X2, etc. correlated (using copula and/or MASS packages)
+- What if there are more than one "x1"?
+
+What we know so far?
+- Algorithm performs well if
+  - The cutpoint is not on one side of X1, e.g, mean(X1 > cp) is not 2% or 98%, etc
+  - Increasing sample size improves the performance (slightly)

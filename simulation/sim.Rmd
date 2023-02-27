@@ -1,0 +1,245 @@
+---
+title: "sim"
+author: "Courtney Schaller"
+date: "`r Sys.Date()`"
+output: pdf_document
+geometry: "top = 1cm"
+always_allow_html: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, cache=TRUE}
+library(spatialEco)
+
+cp = 3
+
+#' Simulated data:
+#' Assume there are 5 time-independent (exponential) covariates; X1, X2, X3, X4, X5
+#' Assume X1 is the important covariate that we want to find a cutpoint of.
+#' Think of this as the constriction velocity in the dataset.
+#' Assume X2 and X3 have significant effect while X4 and X5 are nuisance variables.
+#'
+#' @param n is the sample size
+#' @param cp is the true cutpoint (we assume we know this in the simulation,
+#' but is unknown in real life data)
+
+#create dataset
+simDat <- function(n, cp = 1) {
+    dat <- data.frame(matrix(rexp(n * 5), n)) #set what distribution X vars come from
+    xb <- (dat$X1 > cp) + dat$X2 - dat$X3
+    dat$Y <- rbinom(n, 1, 1 / (1 + exp(-xb)))
+    return(dat)
+}
+```
+
+```{r, cache=TRUE}
+dat <- simDat(100, cp)
+
+cp.vec <- seq(0, 6, .1)[-1]
+cons <- rep(NA, length(cp.vec))
+
+#fit glm with each cutoff point for X1, save concordance value
+for (i in 1:length(cp.vec)) {
+    fit <- glm(Y ~ I(X1 < cp.vec[i]) + X2 + X3 + X4 + X5, binomial, dat)
+    cons[i] <- concordance(dat$Y, predict(fit, type = "response"))$con
+}
+cp.vec[which.max(cons)]
+```
+
+```{r, cache=TRUE}
+#replicate several times
+do <- function() {
+    dat <- simDat(100, cp)
+    cp.vec <- seq(0, 6, .1)[-1]
+    cons <- rep(NA, length(cp.vec))
+    for (i in 1:length(cp.vec)) {
+        fit <- glm(Y ~ I(X1 < cp.vec[i]) + X2 + X3 + X4 + X5, binomial, dat)
+        cons[i] <- concordance(dat$Y, predict(fit, type = "response"))$con
+    }
+    cp.vec[which.max(cons)]
+}
+
+foo <- replicate(1e2, do())
+foo100 <- replicate(1e2, do())
+summary(foo)
+```
+
+```{r, cache=TRUE}
+## Tree method? 
+library(partykit)
+ctree(Y ~ X1 + X2 + X3 + X4 + X5, dat)
+ctree(Y ~ X1 + X2 + X3 + X4 + X5, dat, control = ctree_control(stump = TRUE))
+```
+
+Familiarize self with example data for general ranges of variables, e.g. CV ranges from 0 to 4
+
+```{r, cache=TRUE}
+library(readxl)
+library(dplyr)
+mymerge135 <- read_excel("../data/mymerge135.xlsx")
+
+vars <- c("CVL", "CVR", "NPiL", "NPiR")
+mymerge135 %>% select(vars) %>% summary()
+```
+
+try different positive distribution for X1 (exponential with different mean, gamma, uniform, beta, half-normal, etc)
+
+```{r, cache=TRUE}
+#example code to view shape of real data
+mymerge135 %>% select(c(SID, CVL, CVR)) %>% group_by(SID) %>% summarise(CVL = max(CVL, na.rm = TRUE), CVR = max(CVR, na.rm = TRUE)) %>% ggplot(aes(CVR)) + geom_histogram() 
+```
+
+```{r, cache=TRUE}
+#create dataset with exp with mean 2
+simDatExp <- function(n, cp = 1) {
+    dat <- data.frame(matrix(rexp(n * 5, rate = 0.5), n)) #set what distribution X vars come from
+    dat$X1 <- round(dat$X1, digits = 1)
+    xb <- (dat$X1 > cp) + dat$X2 - dat$X3
+    dat$Y <- rbinom(n, 1, 1 / (1 + exp(-xb)))
+    return(dat)
+}
+
+#replicate several times
+doExp <- function() {
+    dat <- simDatExp(100, cp)
+    cp.vec <- seq(0, 6, .1)[-1]
+    cons <- rep(NA, length(cp.vec))
+    for (i in 1:length(cp.vec)) {
+        fit <- glm(Y ~ I((X1) < cp.vec[i]) + X2 + X3 + X4 + X5, binomial, dat)
+        cons[i] <- concordance(dat$Y, predict(fit, type = "response"))$con
+    }
+    cp.vec[which.max(cons)]
+}
+
+propExp <- simDatExp(1e5, cp) %>% filter(X1>cp) %>% count() %>% as.numeric() / 1e5
+propYExp <- simDatExp(1e5, cp) %>% filter(Y==1) %>% count() %>% as.numeric() / 1e5
+fooExp <- replicate(1e2, doExp())
+summary(fooExp)
+```
+
+```{r, cache=TRUE}
+#gamma with params 2 & 0.5
+simDatGamma <- function(n, cp = 1, shape = 2, scale = 0.5) {
+    dat <- data.frame(matrix(rgamma(n*5, shape = shape, scale = scale), n)) #set what distribution X vars come from
+    dat$X1 <- round(dat$X1, digits = 1)
+    xb <- (dat$X1 > cp) + dat$X2 - dat$X3
+    dat$Y <- rbinom(n, 1, 1 / (1 + exp(-xb)))
+    return(dat)
+}
+doGamma <- function() {
+    dat <- simDatGamma(100, cp)
+    cp.vec <- seq(0, 6, .1)[-1]
+    cons <- rep(NA, length(cp.vec))
+    for (i in 1:length(cp.vec)) {
+        fit <- glm(Y ~ I((X1) < cp.vec[i]) + X2 + X3 + X4 + X5, binomial, dat)
+        cons[i] <- concordance(dat$Y, predict(fit, type = "response"))$con
+    }
+    cp.vec[which.max(cons)]
+}
+
+propGamma <- simDatGamma(1e5, cp = 3) %>% filter(X1>cp) %>% count() %>% as.numeric() / 1e5
+propYGamma <- simDatGamma(1e5, cp) %>% filter(Y==1) %>% count() %>% as.numeric() / 1e5
+fooGamma <- replicate(1e2, doGamma())
+summary(fooGamma)
+```
+
+```{r, cache=TRUE}
+#uniform from 0 to 4
+simDatUnif <- function(n, cp = 1, min = 0, max = 4) {
+    dat <- data.frame(matrix(runif(n*5, min, max), n)) #set what distribution X vars come from
+    dat$X1 <- round(dat$X1, digits = 1)
+    xb <- (dat$X1 > cp) + dat$X2 - dat$X3
+    dat$Y <- rbinom(n, 1, 1 / (1 + exp(-xb)))
+    return(dat)
+}
+doUnif <- function() {
+    dat <- simDatUnif(100, cp)
+    cp.vec <- seq(0, 6, .1)[-1]
+    cons <- rep(NA, length(cp.vec))
+    for (i in 1:length(cp.vec)) {
+        fit <- glm(Y ~ I((X1) < cp.vec[i]) + X2 + X3 + X4 + X5, binomial, dat)
+        cons[i] <- concordance(dat$Y, predict(fit, type = "response"))$con
+    }
+    cp.vec[which.max(cons)]
+}
+
+propUnif <- simDatUnif(1e5, cp) %>% filter(X1>cp) %>% count() %>% as.numeric() / 1e5
+propYUnif <- simDatUnif(1e5, cp) %>% filter(Y==1) %>% count() %>% as.numeric() / 1e5
+fooUnif <- replicate(1e2, do())
+summary(fooUnif)
+```
+
+```{r, cache=TRUE}
+#beta with params 2 and 2 (multiplied by four to range 0 to 4 instead of 0 to 1)
+simDatBeta <- function(n, cp = 1, shape1 = 2, shape2 = 2) {
+    dat <- data.frame(matrix(4*rbeta(n*5, shape1, shape2), n)) #set what distribution X vars come from
+    dat$X1 <- round(dat$X1, digits = 1)
+    xb <- (dat$X1 > cp) + dat$X2 - dat$X3
+    dat$Y <- rbinom(n, 1, 1 / (1 + exp(-xb)))
+    return(dat)
+}
+
+doBeta <- function() {
+    dat <- simDatBeta(100, cp)
+    cp.vec <- seq(0, 6, .1)[-1]
+    cons <- rep(NA, length(cp.vec))
+    for (i in 1:length(cp.vec)) {
+        fit <- glm(Y ~ I((X1) < cp.vec[i]) + X2 + X3 + X4 + X5, binomial, dat)
+        cons[i] <- concordance(dat$Y, predict(fit, type = "response"))$con
+    }
+    cp.vec[which.max(cons)]
+}
+
+propBeta <- simDatBeta(1e5, cp) %>% filter(X1>cp) %>% count() %>% as.numeric() / 1e5
+propYBeta <- simDatBeta(1e5, cp) %>% filter(Y==1) %>% count() %>% as.numeric() / 1e5
+fooBeta <- replicate(1e2, doBeta())
+summary(fooBeta)
+```
+
+```{r, cache=TRUE}
+#half-normal (standard)
+simDatNorm <- function(n, cp = 1, mean = 1, sd = 1) {
+    dat <- data.frame(matrix(abs(rnorm(n*5, mean, sd)), n)) #set what distribution X vars come from
+    dat$X1 <- round(dat$X1, digits = 1)
+    xb <- (dat$X1 > cp) + dat$X2 - dat$X3
+    dat$Y <- rbinom(n, 1, 1 / (1 + exp(-xb)))
+    return(dat)
+}
+
+doNorm <- function() {
+    dat <- simDatNorm(100, cp)
+    cp.vec <- seq(0, 6, .1)[-1]
+    cons <- rep(NA, length(cp.vec))
+    for (i in 1:length(cp.vec)) {
+        fit <- glm(Y ~ I((X1) < cp.vec[i]) + X2 + X3 + X4 + X5, binomial, dat)
+        cons[i] <- concordance(dat$Y, predict(fit, type = "response"))$con
+    }
+    cp.vec[which.max(cons)]
+}
+
+propNorm <- simDatNorm(1e5, cp) %>% filter(X1>cp) %>% count() %>% as.numeric() / 1e5
+propYNorm <- simDatNorm(1e5, cp) %>% filter(Y==1) %>% count() %>% as.numeric() / 1e5
+fooNorm <- replicate(1e2, doNorm())
+summary(fooNorm)
+```
+
+results
+```{r, cache=TRUE}
+library(ggplot2)
+library(reshape2)
+names <- c("Beta", "Exp", "Gamma", "Half-Normal", "Uniform")
+df <- data.frame(fooBeta, fooExp, fooGamma, fooNorm, fooUnif)
+colnames(df) <- names
+dfmelt <- melt(df)
+ggplot(dfmelt, aes(x = value, color = variable)) + geom_density()
+
+props <- c(propBeta, propExp, propGamma, propNorm, propUnif)
+propsY <- c(propYBeta, propYExp, propYGamma, propYNorm, propYUnif)
+propsdf <- data.frame(props, propsY, names)
+ggplot(data = propsdf, aes(x=names, y=props)) + geom_bar(stat = "identity") + ggtitle("Proportion of X1>cp") + geom_label(aes(label = props))
+ggplot(data = propsdf, aes(x=names, y=propsY)) + geom_bar(stat = "identity") + ggtitle("Proportion of Y==1") + geom_label(aes(label = propsY))
+```
+

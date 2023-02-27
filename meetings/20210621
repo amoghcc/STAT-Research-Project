@@ -1,0 +1,22 @@
+Meeting Notes
+
+Discussion points
+- Performances of the algorithm should depends on:
+
+  - Proportion of 0/1 for the response variable
+  - The location of the true cutoff point, e.g., proportion of X1 that is greater (smaller) than the cutoff point
+  - Sample size
+  - Other covariates (X2, X3, X4, ...)
+
+To-do 
+- try cutoff point of 3 instead of 1
+- round X1 in data generation phase
+- increase number of covariates
+- make code run faster for more replications
+
+Coding styles
+- Generate the `Rmd` in `pdf` for easiler view
+- Avoid long line (lines that go off the pdf page width)
+
+To-do for Steven
+- Go through the codes to make it more efficient, e.g., fastglm 
