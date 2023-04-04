@@ -1,0 +1,14 @@
+Meeting Notes 2/27/2023
+
+Remarks
+ - Explore second outpoint
+	- Expand cons to matrix
+	- Work on exponential scenario
+	- Library: geepack
+		- Relaxes independence assumptions
+		- used for clustering
+
+To do
+ - Look at dataset to identify which distribution it follows
+ - Create a histogram for excel data
+ 
