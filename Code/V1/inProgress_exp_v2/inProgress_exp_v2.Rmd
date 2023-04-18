@@ -1,0 +1,144 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# import libraries
+```{r, warning=FALSE, }
+suppressMessages(library(spatialEco))
+suppressMessages(library(readxl))
+suppressMessages(library(dplyr))
+suppressMessages(library(ggplot2))
+library(parallel)
+```
+
+
+```{r, eval=FALSE}
+mymerge135 <- read_excel("/Users/amogh/Documents/UTD/Spring 2023/STAT Research/mymerge135.xlsx")
+vars <- c("CVL", "CVR", "NPiL", "NPiR")
+mymerge135 %>% select(vars) %>% summary()
+```   
+
+```{r, eval=FALSE, cache=TRUE}
+#example code to view shape of real data
+mymerge135 %>% select(c(SID, CVL, CVR)) %>% group_by(SID) %>% summarise(CVL = max(CVL, na.rm = TRUE), CVR = max(CVR, na.rm = TRUE)) %>% ggplot(aes(CVR)) + geom_histogram() 
+```
+
+# skeleton doExp code
+```{r, eval=FALSE}
+cp = 1
+dat <- simDat(100, cp)
+cp.vec <- seq(0, 6, .1)[-1]
+cons <- matrix(NA, nrow = length(cp.vec), ncol = length(cp.vec))
+
+    # rows are X1(i), columns at X2(j)
+rownames(cons) <- cp.vec
+colnames(cons) <- cp.vec
+    
+for (i in 1:length(cp.vec)) {
+  for (j in 1:length(cp.vec)) {
+    fit <- glm(Y ~ I(X1 < cp.vec[i]) + I(X2 < cp.vec[j]) + X3 + X4 + X5, binomial, dat)
+    cons[i, j] <- concordance(dat$Y, predict(fit, type = "response"))$con
+  }
+}  
+which.max(cons)
+cons[which.max(cons)]
+```
+
+# my implementation
+```{r, cache=TRUE}
+# set random seed, find extreme case and test
+set.seed(0)
+
+#create dataset with exp with mean 2
+simDatExp <- function(n, cp = 1) {
+  dat <- data.frame(matrix(rexp(n * 5, rate = 0.5), n)) #set distribution X vars come from
+  dat$X1 <- round(dat$X1, digits = 1)
+  dat$X2 <- round(dat$X2, digits = 1)
+  xb <- (dat$X1 > cp) + (dat$X2 > cp) + dat$X3 - dat$X4
+  dat$Y <- rbinom(n, 1, 1 / (1 + exp(-xb)))
+  return(dat)
+}
+
+#replicate several times
+doExp <- function(n) {
+    cp = 1
+    dat <- simDatExp(200, cp) # increased to 200 from 100
+    cp.vec <- seq(0, 6, .1)[-1]
+    cons <- matrix(NA, nrow = length(cp.vec), ncol = length(cp.vec))
+
+    # rows are X1(i), columns at X2(j)
+    rownames(cons) <- cp.vec
+    colnames(cons) <- cp.vec
+    
+    for (i in 1:length(cp.vec)) {
+      for (j in 1:length(cp.vec)) {
+        fit <- glm(Y ~ I(X1 < cp.vec[i]) + I(X2 < cp.vec[j]) + X3 + X4 + X5, binomial, dat)
+        cons[i, j] <- concordance(dat$Y, predict(fit, type = "response"))$con
+        
+      }
+    }
+    find <- which.max(cons)
+    column <- ceiling(find / length(cp.vec))
+    column
+    row <- find - ((column - 1) * length(cp.vec))
+    row
+    #print(find)
+    #print(length(cp.vec))
+    #print(column)
+    #print(row)
+    #cons[which.max(cons)]
+    #coord <- c(which.max(cons), cp.vec[column], cp.vec[row])
+    coord <- c(cp.vec[column], cp.vec[row])
+    return (coord)
+}
+
+cp = 1
+propExp <- simDatExp(1e5, cp) %>% filter(X1>cp, X2>cp) %>% count() %>% as.numeric() / 1e5
+propYExp <- simDatExp(1e5, cp) %>% filter(Y==1) %>% count() %>% as.numeric() / 1e5
+
+propExp
+propYExp
+
+#fooExp <- replicate(1, doExp())
+#fooExp <- t(fooExp)
+#fooExp
+#summary(fooExp)
+
+```
+
+
+
+```{r}
+c1 <- makePSOCKcluster(detectCores())
+setDefaultCluster(c1)
+clusterExport(NULL, "simDatExp")
+clusterExport(NULL, "doExp")
+clusterExport(NULL, "concordance")
+test <- parSapply(NULL, 1:100, FUN = doExp)
+test
+test <- t(test)
+summary(test)
+stopCluster(c1)
+```
+
+
+```{r}
+x <- test[, 1]
+y <- test[, 2]
+
+hist(x)
+hist(y)
+```
+
+
+
+
+
+
+
+
